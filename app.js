@@ -1,10 +1,12 @@
 //jshint esversion:6
 require('dotenv').config();
+const bcrypt =  require("bcrypt");
 const express = require('express');
 const bp = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const encrypt = require('mongoose-encryption');
+
+const saltRounds = 10;
 
 const app = express();
 
@@ -28,7 +30,6 @@ const userSchema =  new mongoose.Schema({
 });
 
 
-userSchema.plugin(encrypt, { secret: process.env.SECRET , encryptedFields: ['password']});
 const User = mongoose.model('User', userSchema);
 
 //----------Setting up the schema----------//
@@ -56,9 +57,11 @@ app.post("/login", function(req, res) {
     if (err) console.log(err);
 else if(response){
 
-      if (response.password === pass)
-        res.render("secrets");
-      else res.render("home");
+  bcrypt.compare(pass, response.password, function(error, result) {
+if (result === true)
+res.render("secrets");
+else  res.render("login");
+});
 
     }
     else res.render("login");
@@ -75,37 +78,40 @@ app.get("/register", function(req, res) {
 
 app.post("/register", function(req, res) {
 
-  const em = req.body.username;
-  console.log(em);
-  const pass = req.body.password;
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    const em = req.body.username;
+    console.log(em);
+    const pass = hash;
 
-  const newUser = new User({
-    email: em,
-    password: pass
-  });
+    const newUser = new User({
+      email: em,
+      password: pass
+    });
 
-  User.findOne({
-    email: em
-  }, function(err, response) {
+    User.findOne({
+      email: em
+    }, function(err, response) {
 
-    if (err) console.log(err);
-else {
-      if(response)
-      res.render("register");
+      if (err) console.log(err);
+  else {
+        if(response)
+        res.render("register");
 
-      else {
-        newUser.save( function (err){
-          if (err) console.log(err);
+        else {
+          newUser.save( function (err){
+            if (err) console.log(err);
 
-          else {
-            res.render("secrets");
-          }
-        });
+            else {
+              res.render("secrets");
+            }
+          });
+        }
+
       }
 
-    }
-
+    });
   });
+
 
 });
 
